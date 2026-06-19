@@ -1,0 +1,49 @@
+# docker-compose.yml
+# 一键启动所有服务：后端 + 向量数据库
+# 使用命令：docker-compose up -d
+
+version: '3.9'
+
+services:
+  # ── 后端服务 ────────────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: workmind-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_URL=http://chroma:8000
+      - ALLOWED_ORIGINS=http://localhost:5173,https://yourdomain.com
+    depends_on:
+      chroma:
+        condition: service_started
+    volumes:
+      - ./server/uploads:/app/uploads   # 上传文件持久化
+    networks:
+      - workmind-net
+
+  # ── Chroma 向量数据库（RAG 模块用）────────────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: workmind-chroma
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - workmind-net
+
+volumes:
+  chroma-data:
+
+networks:
+  workmind-net:
+    driver: bridge
