@@ -1,6 +1,45 @@
 version: '3.9'
 
 services:
+  # ── PostgreSQL 数据库 ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: workmind-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: workmind
+      POSTGRES_USER: workmind
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-workmind123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - workmind-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workmind"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis 缓存 ────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: workmind-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - workmind-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 后端服务 ──────────────────────────────────────────────────
   server:
     build:
       context: ./server
@@ -16,7 +55,17 @@ services:
       - CHROMA_URL=http://chroma:8000
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
       - CACHE_TTL=${CACHE_TTL:-1800000}
+      - DATABASE_URL=postgresql://workmind:${POSTGRES_PASSWORD:-workmind123}@postgres:5432/workmind?schema=public
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET:-workmind-jwt-secret-change-in-production}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-workmind-refresh-secret-change-in-production}
+      - JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-30d}
     depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
       chroma:
         condition: service_started
     volumes:
@@ -24,6 +73,7 @@ services:
     networks:
       - workmind-net
 
+  # ── ChromaDB 向量数据库 ───────────────────────────────────────
   chroma:
     image: chromadb/chroma:latest
     container_name: workmind-chroma
@@ -33,6 +83,7 @@ services:
     networks:
       - workmind-net
 
+  # ── Nginx 前端 + 反向代理 ─────────────────────────────────────
   nginx:
     build:
       context: ./frontend
@@ -47,6 +98,8 @@ services:
       - workmind-net
 
 volumes:
+  pg-data:
+  redis-data:
   chroma-data:
 
 networks:

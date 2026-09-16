@@ -1,0 +1,98 @@
+/* DocumentUploader.module.css —— 文档上传区（迁移自 DocumentUploader.vue scoped style） */
+.uploader-wrapper { padding: var(--space-md); }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+.section-title { font-size: 13px; font-weight: 600; color: var(--color-text); margin: 0; }
+.btn-text {
+  font-size: 12px;
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* 拖拽区域 */
+.drop-zone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  margin-bottom: var(--space-md);
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-bg);
+}
+.drop-zone.has-file { border-style: solid; border-color: var(--color-success); }
+
+.drop-hint { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.drop-icon { font-size: 28px; }
+.drop-text { font-size: 13px; font-weight: 500; color: var(--color-text-sub); }
+.drop-sub { font-size: 11px; color: var(--color-text-muted); }
+
+.file-preview {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+}
+.file-icon { font-size: 28px; }
+.file-info { flex: 1; text-align: left; }
+.file-name { font-size: 13px; font-weight: 500; color: var(--color-text); }
+.file-size { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
+.btn-remove {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: none;
+  color: var(--color-text-sub);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-remove:hover { background: var(--color-danger); color: #fff; }
+
+.form-row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); }
+.form-row select { width: 130px; flex-shrink: 0; }
+.text-input-form select { width: 130px; flex-shrink: 0; }
+
+.text-input-form { display: flex; flex-direction: column; gap: var(--space-sm); }
+.text-input-form :global(.textarea) { min-height: 120px; }
+.char-hint { font-size: 11px; color: var(--color-text-muted); text-align: right; margin-top: -4px; }
+
+/* 进度条 */
+.progress-bar {
+  height: 4px;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: var(--space-sm);
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: var(--radius-full);
+  transition: width .3s ease;
+}
+.progress-text {
+  position: absolute;
+  right: 0;
+  top: 6px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}

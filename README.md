@@ -1,9 +1,9 @@
 # WorkMind AI
 
 [![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs)](https://nodejs.org/)
-[![Express](https://img.shields.io/badge/Express-4-000000?logo=express)](https://expressjs.com/)
+[![NestJS](https://img.shields.io/badge/NestJS-10-E0234E?logo=nestjs)](https://nestjs.com/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2-1C3C3C)](https://langchain-ai.github.io/langgraphjs/)
-[![Vue](https://img.shields.io/badge/Vue-3.4-4FC08D?logo=vuedotjs)](https://vuejs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-4B6BFB)](https://platform.deepseek.com/)
 [![Chroma](https://img.shields.io/badge/Chroma-1.9-4169E1)](https://www.trychroma.com/)
 
@@ -17,7 +17,7 @@ WorkMind 是一个面向办公场景的 AI 助手平台——不是简单的聊�
 
 ```mermaid
 graph TB
-    subgraph Frontend["Frontend · Vue 3 + Element Plus + Pinia"]
+    subgraph Frontend["Frontend · React 19 + Ant Design 5 + zustand"]
         AGENT_UI[AI 对话]
         WF_UI[工作流]
         KNOWLEDGE_UI[知识库]
@@ -25,7 +25,7 @@ graph TB
         MONITOR_UI[用量监控]
     end
 
-    subgraph Routes["Express 路由层"]
+    subgraph Routes["NestJS 控制器层"]
         AGENT_R["/api/agent/run · SSE"]
         WF_R["/api/workflow · SSE"]
         PROMPT_R["/api/prompt"]
@@ -64,15 +64,15 @@ graph TB
 
 | 维度 | 选型 | 说明 |
 |------|------|------|
-| 运行时 | Node.js 22 | ESM 模块，原生 --watch |
-| 后端框架 | Express 4 | 中间件生态完善 |
+| 运行时 | Node.js 20+ | TypeScript 5 |
+| 后端框架 | NestJS 10 | 模块化 + 依赖注入 |
 | AI 编排 | LangGraph 0.2 | StateGraph 状态图 + streamEvents |
 | 对话模型 | DeepSeek-V3 | 中文优秀，价格 GPT-4o 1/10 |
 | Embedding | BGE-M3 / text-embedding-3-small | 文本向量化 |
 | 向量数据库 | Chroma 1.9 | 开源，本地部署 |
-| 前端框架 | Vue 3.4 | Composition API |
-| UI 库 | Element Plus 2.13 | 企业级 Vue 3 组件库 |
-| 状态管理 | Pinia 2 | Vue 官方推荐 |
+| 前端框架 | React 19 | Vite 6 + React Router 7 |
+| UI 库 | Ant Design 5 | 企业级 React 组件库 |
+| 状态管理 | zustand 5 | 轻量 React 状态管理 |
 
 ## 核心功能
 
@@ -145,13 +145,13 @@ Agent 的 `read_doc` 工具会调用 RAG 检索公司内部文档。
 workmind7/
 ├── server/
 │   └── src/
-│       ├── index.js                # Express 启动入口
+│       ├── main.ts                 # NestJS 启动入口
+│       ├── app.module.ts           # 根模块（中间件按路由注册）
 │       ├── config/index.js         # 统一配置读取
-│       ├── routes/                 # 路由层
-│       │   ├── agent.js            # Agent SSE 流式路由
-│       │   ├── workflow.js         # 工作流路由
-│       │   ├── erp.js / prompt.js / monitor.js / health.js
-│       ├── services/
+│       ├── agent/ chat/ knowledge/ workflow/ erp/ prompt/ monitor/ health/
+│       │   └── *.module.ts / *.controller.ts / *.service.ts   # NestJS 模块层
+│       ├── filters/                # 全局异常过滤器
+│       ├── services/               # AI 业务层（纯 JS，LangChain/LangGraph）
 │       │   ├── model.js            # 模型工厂（ChatOpenAI 兼容）
 │       │   ├── agent/
 │       │   │   ├── agent.js        # ReAct Agent（StateGraph）
@@ -167,15 +167,20 @@ workmind7/
 │       └── utils/                  # 日志、错误处理
 ├── frontend/
 │   └── src/
-│       ├── main.js                 # Vue 入口
-│       ├── router/                 # 路由配置
-│       ├── stores/                 # Pinia stores
-│       │   ├── agent.js            # Agent 对话状态
+│       ├── main.jsx                # React 入口
+│       ├── App.jsx                 # 根布局 + 路由（react-router 7）
+│       ├── config/navigation.jsx   # 导航配置
+│       ├── stores/                 # zustand stores
+│       │   ├── chat.js             # 聊天状态（SSE 流式）
+│       │   ├── agent.js            # Agent 任务状态
 │       │   ├── workflow.js         # 工作流状态
 │       │   ├── knowledge.js        # 知识库状态
-│       │   ├── monitor.js          # 监控状态
-│       │   └── erp.js              # ERP 状态
-│       └── views/                  # 各模块页面
+│       │   ├── erp.js              # ERP 审批状态
+│       │   ├── prompt.js           # Prompt 调试状态
+│       │   └── monitor.js / app.js # 监控 / 全局状态
+│       ├── views/                  # 各模块页面
+│       ├── components/             # 各模块组件
+│       └── utils/                  # http / SSE / markdown 工具
 └── .env.example                    # 环境变量模板
 ```
 
@@ -194,7 +199,8 @@ cp server/.env.example server/.env
 docker run -d -p 8000:8000 chromadb/chroma
 
 # 4. 启动
-cd server && npm run dev     # → localhost:3000
+cd server && npm run dev     # 开发模式（ts-node-dev）→ localhost:3000
+# 或：npm run build && npm start（编译后运行）
 cd frontend && npm run dev   # → localhost:5173
 ```
 

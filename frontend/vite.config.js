@@ -1,10 +1,10 @@
 // frontend/vite.config.js
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [react()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
@@ -15,6 +15,10 @@ export default defineConfig({
     // 开发时把 /api 请求代理到后端，避免跨域问题
     proxy: {
       '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/health': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },

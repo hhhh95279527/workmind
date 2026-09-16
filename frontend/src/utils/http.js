@@ -1,7 +1,8 @@
 // frontend/src/utils/http.js
-// 统一封装 axios：请求拦截、响应拦截、错误处理
+// 统一封装 axios：请求拦截（JWT Token）、响应拦截（401 自动刷新）、错误处理
 import axios from 'axios'
 import { useAppStore } from '@/stores/app.js'
+import { useAuthStore } from '@/stores/auth.js'
 
 // 创建 axios 实例
 const http = axios.create({
@@ -9,36 +10,94 @@ const http = axios.create({
   timeout: 30000,            // 普通请求 30s 超时
 })
 
-// ── 请求拦截器 ─────────────────────────────────────────────────
+// 是否正在刷新 Token
+let isRefreshing = false
+let refreshSubscribers = []
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach(cb => cb(token))
+  refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb) {
+  refreshSubscribers.push(cb)
+}
+
+// ── 请求拦截器：自动附加 JWT Token ────────────────────────────────
 http.interceptors.request.use(
   (config) => {
-    // 可以在这里加 token：config.headers.Authorization = `Bearer ${token}`
+    const { accessToken } = useAuthStore.getState()
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
+    }
     return config
   },
   (error) => Promise.reject(error)
 )
 
-// ── 响应拦截器 ─────────────────────────────────────────────────
+// ── 响应拦截器：401 自动刷新 Token ────────────────────────────────
 http.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    const appStore = useAppStore()
+  async (error) => {
+    const toast = useAppStore.getState().toast
+    const originalRequest = error.config
 
+    // 401 且未重试过：尝试刷新 Token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const { refreshToken, logout } = useAuthStore.getState()
+
+      // 没有 refreshToken，直接登出
+      if (!refreshToken) {
+        logout()
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      // 已在刷新中，排队等待
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          addRefreshSubscriber((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(http(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const res = await axios.post('/api/auth/refresh', { refreshToken })
+        const { accessToken: newAccess, refreshToken: newRefresh } = res.data
+        useAuthStore.getState().setTokens(newAccess, newRefresh)
+        isRefreshing = false
+        onRefreshed(newAccess)
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`
+        return http(originalRequest)
+      } catch (refreshError) {
+        isRefreshing = false
+        logout()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      }
+    }
+
+    // 其他错误处理
     if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-      appStore.toast.error('请求超时，请稍后重试')
+      toast.error('请求超时，请稍后重试')
     } else if (error.response) {
       const status = error.response.status
-      const msg = error.response.data?.error || '请求失败'
+      const msg = error.response.data?.error?.message || error.response.data?.error || '请求失败'
 
       if (status === 429) {
-        appStore.toast.warning('请求太频繁，请稍后再试')
+        toast.warning('请求太频繁，请稍后再试')
       } else if (status >= 500) {
-        appStore.toast.error('服务器异常，请稍后重试')
+        toast.error('服务器异常，请稍后重试')
       } else {
-        appStore.toast.error(msg)
+        toast.error(msg)
       }
     } else {
-      appStore.toast.error('网络异常，请检查连接')
+      toast.error('网络异常，请检查连接')
     }
 
     return Promise.reject(error)
@@ -53,15 +112,21 @@ http.interceptors.response.use(
 // onError：出错时的回调
 export async function fetchStream(url, body, { onToken, onEvent, onDone, onError } = {}) {
   try {
+    const { accessToken } = useAuthStore.getState()
+    const headers = { 'Content-Type': 'application/json' }
+    if (accessToken) {
+      headers.Authorization = `Bearer ${accessToken}`
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     })
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
-      throw new Error(data.error || `HTTP ${response.status}`)
+      throw new Error(data.error?.message || data.error || `HTTP ${response.status}`)
     }
 
     const reader  = response.body.getReader()

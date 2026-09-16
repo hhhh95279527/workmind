@@ -1,0 +1,94 @@
+/* RiskCard.module.css —— 风险卡片 */
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-text-muted);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: box-shadow .15s, border-color .15s;
+}
+
+.card:hover {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .08);
+}
+
+.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-bg);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sevDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-sub);
+}
+
+.quote {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--color-bg);
+  border-left: 3px solid var(--color-warning);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text-sub);
+  white-space: pre-wrap;
+}
+
+.section {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+  margin-top: 4px;
+}
+
+.basis {
+  margin-top: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-sub);
+  background: var(--color-primary-bg);
+  border-radius: 4px;
+}
+
+.finalComment {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-primary-dark);
+}
+
+.actions {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.actionBtns {
+  display: flex;
+  gap: 8px;
+}

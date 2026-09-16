@@ -1,40 +1,30 @@
 // frontend/src/stores/app.js
-// 全局应用状态：主题、全局 loading、toast 提示
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+// 全局应用状态：主题 + Toast（基于 antd message）
+import { create } from 'zustand'
+import { message as staticMessage } from 'antd'
 
-export const useAppStore = defineStore('app', () => {
+// antd <App> 组件挂载后注入的 message 实例（可消费动态主题上下文）
+let messageApi = null
+export function setMessageApi(api) {
+  messageApi = api
+}
+const msg = () => messageApi || staticMessage
+
+export const useAppStore = create((set) => ({
   // ── 主题 ────────────────────────────────────────────────────
-  const theme = ref(localStorage.getItem('theme') || 'light')
+  theme: localStorage.getItem('theme') || 'light',
 
-  function toggleTheme() {
-    theme.value = theme.value === 'light' ? 'dark' : 'light'
-    localStorage.setItem('theme', theme.value)
-  }
+  toggleTheme: () => set((s) => {
+    const theme = s.theme === 'light' ? 'dark' : 'light'
+    localStorage.setItem('theme', theme)
+    return { theme }
+  }),
 
-  // ── 全局 Toast 消息 ──────────────────────────────────────────
-  const toasts = ref([])
-  let toastId = 0
-
-  function showToast(message, type = 'info', duration = 3000) {
-    const id = ++toastId
-    toasts.value.push({ id, message, type })
-    setTimeout(() => {
-      toasts.value = toasts.value.filter(t => t.id !== id)
-    }, duration)
-  }
-
-  const toast = {
-    success: (msg) => showToast(msg, 'success'),
-    error:   (msg) => showToast(msg, 'error'),
-    warning: (msg) => showToast(msg, 'warning'),
-    info:    (msg) => showToast(msg, 'info'),
-  }
-
-  return {
-    theme,
-    toggleTheme,
-    toasts,
-    toast,
-  }
-})
+  // ── 全局 Toast 消息（优先使用上下文 message 实例）──────────
+  toast: {
+    success: (m) => msg().success(m),
+    error:   (m) => msg().error(m),
+    warning: (m) => msg().warning(m),
+    info:    (m) => msg().info(m),
+  },
+}))

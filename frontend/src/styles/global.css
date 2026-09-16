@@ -94,9 +94,31 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app {
+#root {
   height: 100%;
   display: flex;
+}
+
+/* ── 根布局（App.jsx）──────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;  /* 防止 flex 子元素溢出 */
+}
+
+.page-content {
+  flex: 1;
+  overflow: hidden;   /* 各页面自己管理内部滚动 */
 }
 
 a {
@@ -234,6 +256,8 @@ pre code {
 }
 .btn-danger:hover { background: #fee2e2; }
 
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+
 /* ── 通用输入框 ──────────────────────────────────────────────── */
 .input {
   width: 100%;
@@ -289,3 +313,54 @@ textarea.input {
 .tag-red    { background: #fee2e2; color: #991b1b; }
 .tag-purple { background: var(--color-primary-bg); color: var(--color-primary); }
 .tag-gray   { background: var(--color-border-light); color: var(--color-text-sub); }
+
+/* ── Markdown 渲染样式（AI 回复通用） ───────────────────────── */
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  margin: 1em 0 .5em;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.markdown-body h1 { font-size: 1.4em; }
+.markdown-body h2 { font-size: 1.2em; }
+.markdown-body h3 { font-size: 1.05em; }
+.markdown-body p  { margin: .6em 0; }
+.markdown-body ul, .markdown-body ol {
+  padding-left: 1.5em;
+  margin: .5em 0;
+}
+.markdown-body li { margin: .25em 0; }
+.markdown-body strong { font-weight: 600; }
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: .75em 0;
+  font-size: 13px;
+}
+.markdown-body th, .markdown-body td {
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  text-align: left;
+}
+.markdown-body th { background: var(--color-border-light); font-weight: 600; }
+.markdown-body blockquote {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 12px;
+  color: var(--color-text-sub);
+  margin: .5em 0;
+}
+.markdown-body pre {
+  background: #0d1117;
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: .6em 0;
+}
+.markdown-body code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 13px;
+}
+.markdown-body p code, .markdown-body li code {
+  background: var(--color-border-light);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
