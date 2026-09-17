@@ -6,3 +6,4 @@ dist/
 .trae/
 *.log
 server/uploads/
+workspace/
