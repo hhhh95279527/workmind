@@ -13,9 +13,12 @@ import { config } from '../config/index.js'
  * @param {array}   options.callbacks    - LangChain 回调（如成本追踪）
  */
 export function createChatModel({ temperature = 0.7, streaming = false, callbacks = [] } = {}) {
+  // ChatOpenAI 构造期只校验 key「是否存在」，无 key 时给占位串，避免模块加载（import 副作用）
+  // 直接抛错导致 seed / build / eval 等不发起调用的场景崩溃；真实调用前各链路用 isValidAiKey
+  // 预检跳过，漏网的调用在请求期失败，由 SSE 错误帧与既有降级逻辑处理
   const instance = new ChatOpenAI({
     model:         config.ai.primaryModel,
-    apiKey:        config.ai.deepseekKey,
+    apiKey:        config.ai.deepseekKey || 'sk-missing-key-placeholder',
     configuration: { baseURL: config.ai.baseURL },
     temperature,
     streaming,
