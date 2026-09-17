@@ -10,6 +10,7 @@ const FEATURE_NAMES: Record<string, string> = {
   knowledge: 'RAG 知识库',
   agent: '任务 Agent',
   contract_review: '合同审查',
+  eval: '离线评测',
 }
 
 interface DayRow { date: string; total: number; api: number; input: number; output: number; cost: number }
@@ -146,6 +147,88 @@ export class MonitorService {
       })
     }
     return days
+  }
+
+  // ── Trace 瀑布页数据源 ───────────────────────────────────────
+  /** 链路列表：分页 + feature/status 过滤，强制租户隔离 */
+  async listTraces(
+    tenantId: string,
+    opts: { page: number; pageSize: number; feature?: string; status?: string },
+  ) {
+    const { page, pageSize } = opts
+    const where: any = { tenantId }
+    if (opts.feature) where.feature = opts.feature
+    if (opts.status === 'OK' || opts.status === 'ERROR') where.status = opts.status
+
+    const [rows, total] = await Promise.all([
+      this.db.trace.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.db.trace.count({ where }),
+    ])
+
+    return {
+      total,
+      page,
+      pageSize,
+      items: rows.map((t) => ({
+        id: t.id,
+        feature: t.feature,
+        label: FEATURE_NAMES[t.feature] || t.feature,
+        name: t.name,
+        status: t.status,
+        model: t.model,
+        inputTokens: t.inputTokens,
+        outputTokens: t.outputTokens,
+        tokens: t.inputTokens + t.outputTokens,
+        costCny: Number(t.costCny),
+        latencyMs: t.latencyMs,
+        error: t.error,
+        createdAt: t.createdAt.toISOString(),
+      })),
+    }
+  }
+
+  /** 链路详情：trace + 按开始时间升序的 spans（瀑布时间轴由前端按 startedAt 算偏移） */
+  async getTraceDetail(tenantId: string, id: string) {
+    const trace = await this.db.trace.findFirst({ where: { id, tenantId } })
+    if (!trace) return null
+
+    const spans = await this.db.span.findMany({
+      where: { traceId: trace.id },
+      orderBy: { startedAt: 'asc' },
+    })
+
+    return {
+      id: trace.id,
+      feature: trace.feature,
+      label: FEATURE_NAMES[trace.feature] || trace.feature,
+      name: trace.name,
+      status: trace.status,
+      model: trace.model,
+      inputTokens: trace.inputTokens,
+      outputTokens: trace.outputTokens,
+      costCny: Number(trace.costCny),
+      latencyMs: trace.latencyMs,
+      error: trace.error,
+      startedAt: trace.createdAt.toISOString(),
+      spans: spans.map((s) => ({
+        id: s.id,
+        type: s.type,
+        name: s.name,
+        startedAt: s.startedAt.toISOString(),
+        durationMs: s.durationMs,
+        inputTokens: s.inputTokens,
+        outputTokens: s.outputTokens,
+        costCny: Number(s.costCny),
+        input: s.input,
+        output: s.output,
+        metadata: s.metadata,
+      })),
+    }
   }
 
   setBudget(dailyBudget: number) {

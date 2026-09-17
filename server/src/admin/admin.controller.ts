@@ -1,15 +1,21 @@
 // server/src/admin/admin.controller.ts
 // 管理后台：租户内用户管理、系统配置、基于 Trace 的用量聚合
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Put, Query, Req } from '@nestjs/common'
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Post, Put, Query, Req } from '@nestjs/common'
 import type { Request } from 'express'
 import { DatabaseService } from '../database/database.service'
 import { Roles } from '../auth/decorators/roles.decorator'
+import { BillingService } from '../monitor/billing.service.js'
+import { RuleAdminService, type RuleInput, type RuleListQuery } from './rule-admin.service.js'
 import { logger } from '../utils/logger.js'
 
 @Controller('api/admin')
 @Roles('ADMIN')
 export class AdminController {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private billing: BillingService,
+    private rules: RuleAdminService,
+  ) {}
 
   // ── 用户管理（限本租户）────────────────────────────────────────
   @Get('users')
@@ -141,6 +147,75 @@ export class AdminController {
     }
   }
 
+  // ── 离线评测（EvalRun 为平台基线数据，无租户维度，ADMIN 可查）──────
+  @Get('eval-runs')
+  async listEvalRuns(@Query('page') page = '1', @Query('pageSize') pageSize = '20') {
+    const skip = (Number(page) - 1) * Number(pageSize)
+    const take = Number(pageSize)
+
+    const [runs, total] = await Promise.all([
+      this.db.evalRun.findMany({
+        orderBy: { startedAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.db.evalRun.count(),
+    ])
+
+    return {
+      total,
+      page: Number(page),
+      pageSize: Number(pageSize),
+      items: runs.map((r) => ({
+        id: r.id,
+        status: r.status,
+        caseCount: r.caseCount,
+        passCount: r.passCount,
+        commitSha: r.commitSha,
+        summary: r.summary,
+        startedAt: r.startedAt.toISOString(),
+        finishedAt: r.finishedAt?.toISOString() ?? null,
+      })),
+    }
+  }
+
+  @Get('eval-runs/:id')
+  async getEvalRun(@Param('id') id: string) {
+    const run = await this.db.evalRun.findUnique({ where: { id } })
+    if (!run) throw new ForbiddenException('评测记录不存在')
+
+    const results = await this.db.evalResult.findMany({
+      where: { runId: id },
+      orderBy: [{ passed: 'asc' }, { caseId: 'asc' }],
+      include: {
+        case: { select: { id: true, type: true, title: true, tags: true, expected: true } },
+      },
+    })
+
+    return {
+      run: {
+        id: run.id,
+        status: run.status,
+        caseCount: run.caseCount,
+        passCount: run.passCount,
+        commitSha: run.commitSha,
+        summary: run.summary,
+        startedAt: run.startedAt.toISOString(),
+        finishedAt: run.finishedAt?.toISOString() ?? null,
+      },
+      results: results.map((r) => ({
+        id: r.id,
+        caseId: r.caseId,
+        passed: r.passed,
+        score: r.score,
+        actual: r.actual,
+        judgeReason: r.judgeReason,
+        latencyMs: r.latencyMs,
+        case: r.case,
+      })),
+    }
+  }
+
   // ── 成员用量排行 ──────────────────────────────────────────────
   @Get('usage/users')
   async getUserUsage(@Req() req: Request, @Query('days') days = '30') {
@@ -173,5 +248,58 @@ export class AdminController {
         tokens: (u._sum.inputTokens || 0) + (u._sum.outputTokens || 0),
       })),
     }
+  }
+
+  // ── 配额账单：全租户当前账期汇总（费用倒序）──────────────────────
+  @Get('billing/tenants')
+  listTenantBilling() {
+    return this.billing.listTenantBilling()
+  }
+
+  // ── 配额账单：指定租户完整账单（峰谷/功能占比/历史账期）────────────
+  @Get('billing/tenants/:tenantId')
+  getTenantBilling(@Param('tenantId') tenantId: string) {
+    return this.billing.getBilling(tenantId)
+  }
+
+  // ── 审查规则管理（平台级配置，无租户维度）────────────────────────
+  @Get('rules')
+  listRules(
+    @Query('q') q?: string,
+    @Query('scope') scope?: string,
+    @Query('enabled') enabled?: string,
+    @Query('page') page = '1',
+    @Query('pageSize') pageSize = '50',
+  ) {
+    const query: RuleListQuery = { q, scope, enabled, page: Number(page), pageSize: Number(pageSize) }
+    return this.rules.list(query)
+  }
+
+  // 注意：须放在 GET rules/:id 之前注册，避免 'try' 被当成 :id（POST 方法本身不与 GET :id 冲突，保持显式）
+  @Post('rules/try')
+  tryRule(@Body() body: { id?: string; rule?: RuleInput; text?: string; labor?: boolean }) {
+    return this.rules.tryRule(body)
+  }
+
+  @Get('rules/:id')
+  getRule(@Param('id') id: string) {
+    return this.rules.get(id)
+  }
+
+  @Post('rules')
+  createRule(@Body() body: RuleInput) {
+    logger.info('admin: review rule created', { code: body.code })
+    return this.rules.create(body)
+  }
+
+  @Put('rules/:id')
+  updateRule(@Param('id') id: string, @Body() body: RuleInput) {
+    logger.info('admin: review rule updated', { id, fields: Object.keys(body) })
+    return this.rules.update(id, body)
+  }
+
+  @Delete('rules/:id')
+  deleteRule(@Param('id') id: string) {
+    return this.rules.remove(id)
   }
 }

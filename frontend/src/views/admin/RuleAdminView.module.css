@@ -1,0 +1,70 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+}
+
+.kwCount {
+  font-size: 12px;
+  color: var(--color-text-3, #9ca3af);
+}
+
+.tryCode {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--color-text-2, #6b7280);
+  margin-left: 4px;
+}
+
+.clauseInput {
+  font-family: 'SFMono-Regular', Consolas, 'Microsoft YaHei', monospace;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.regexInput {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 13px;
+}
+
+.quoteCard {
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-danger, #ef4444);
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: var(--color-surface, #fff);
+}
+
+.quoteHead {
+  font-size: 12px;
+  color: var(--color-text-3, #9ca3af);
+  margin-bottom: 4px;
+}
+
+.quoteText {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--color-text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}

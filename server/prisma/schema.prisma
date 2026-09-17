@@ -65,6 +65,7 @@ model User {
   reviewTasks   ReviewTask[]   @relation("Reviewer")
   auditLogs     AuditLog[]
   traces        Trace[]
+  refreshTokens RefreshToken[]
 
   @@index([tenantId])
   @@map("users")
@@ -531,6 +532,25 @@ model AuditLog {
   @@index([tenantId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// Refresh Token 持久化：每次刷新轮转（旧 token 撤销 + replacedById 指向新 token）。
+// 收到已撤销的 token = 疑似泄漏/重放，立即撤销该用户全部 refresh token，强制重新登录。
+model RefreshToken {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id") @db.VarChar(50)
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(255) // sha256(明文 refresh token)
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by_id") @db.VarChar(50)
+  ip           String?   @db.VarChar(45)
+  userAgent    String?   @map("user_agent") @db.VarChar(500)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model SystemConfig {

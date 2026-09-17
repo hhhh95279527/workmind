@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # ── 后端：装包 → 迁移 → 种子 → 构建 → 离线评测（规则组 + 检索组无 key 可跑）──
+  server:
+    name: Server (NestJS + Eval)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: workmind
+          POSTGRES_PASSWORD: workmind
+          POSTGRES_DB: workmind
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workmind"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # 本地是 trust 免密，CI 的 postgres service 用账号密码，二者仅此处不同
+      DATABASE_URL: postgresql://workmind:workmind@localhost:5432/workmind?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET: ci-jwt-secret
+      JWT_REFRESH_SECRET: ci-jwt-refresh-secret
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Seed baseline data (rules / legal docs / sample contracts / eval cases)
+        run: npm run seed
+
+      - name: Build
+        run: npm run build
+
+      - name: "Offline evaluation (no LLM key: RISK_DETECT + RAG_RECALL)"
+        run: npm run eval -- --no-llm
+
+  # ── 前端：装包 → 构建 ────────────────────────────────────────
+  frontend:
+    name: Frontend (React + Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build

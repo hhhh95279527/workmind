@@ -11,6 +11,7 @@ import { splitClauses } from '../src/contract/parsing/clause-parser.js'
 import { setDatabase, ingestText } from '../src/services/rag/ingest.js'
 import { LEGAL_DOCS, TEMPLATE_DOCS } from './fixtures/legal.js'
 import { SAMPLE_CONTRACTS } from './fixtures/contracts.js'
+import { EVAL_CASES } from './fixtures/eval-cases.js'
 
 const prisma = new PrismaClient()
 setDatabase(prisma as any)
@@ -131,6 +132,27 @@ async function seedContracts() {
   console.log(`✓ 样例合同 ${SAMPLE_CONTRACTS.length} 份`)
 }
 
+async function seedEvalCases() {
+  for (const c of EVAL_CASES) {
+    const data = {
+      type: c.type,
+      title: c.title,
+      input: c.input as any,
+      expected: c.expected as any,
+      tags: c.tags,
+      source: 'MANUAL' as const,
+      active: true,
+      tenantId: null, // 平台基线集
+    }
+    await prisma.evalCase.upsert({
+      where: { id: c.id },
+      create: { id: c.id, ...data },
+      update: data,
+    })
+  }
+  console.log(`✓ 离线评测用例 ${EVAL_CASES.length} 条`)
+}
+
 async function main() {
   console.log('开始播种...')
   await ensureUser('testboss', '测试科技')
@@ -138,6 +160,7 @@ async function main() {
   await seedRules()
   await seedDocs()
   await seedContracts()
+  await seedEvalCases()
   console.log('播种完成 ✓')
 }
 

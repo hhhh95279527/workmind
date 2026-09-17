@@ -18,7 +18,11 @@ const AgentView     = lazy(() => import('@/views/AgentView.jsx'))
 const ContractList  = lazy(() => import('@/views/contract/ContractListView.jsx'))
 const ReviewWorkbench = lazy(() => import('@/views/contract/ReviewWorkbench.jsx'))
 const MonitorView   = lazy(() => import('@/views/MonitorView.jsx'))
+const TraceWaterfall = lazy(() => import('@/views/monitor/TraceWaterfall.jsx'))
+const BillingView   = lazy(() => import('@/views/monitor/BillingView.jsx'))
 const AdminView     = lazy(() => import('@/views/AdminView.jsx'))
+const EvalView      = lazy(() => import('@/views/admin/EvalView.jsx'))
+const RuleAdminView = lazy(() => import('@/views/admin/RuleAdminView.jsx'))
 
 function PageFallback() {
   return (
@@ -81,7 +85,12 @@ export default function App() {
                 <Route path="/contracts" element={<AuthGuard><ContractList /></AuthGuard>} />
                 <Route path="/contracts/:id" element={<AuthGuard><ReviewWorkbench /></AuthGuard>} />
                 <Route path="/monitor" element={<AuthGuard><MonitorView /></AuthGuard>} />
+                <Route path="/monitor/traces" element={<AuthGuard><TraceWaterfall /></AuthGuard>} />
+                <Route path="/monitor/billing" element={<AuthGuard><BillingView /></AuthGuard>} />
                 <Route path="/admin" element={<AuthGuard><AdminView /></AuthGuard>} />
+                <Route path="/admin/eval" element={<AuthGuard><EvalView /></AuthGuard>} />
+                <Route path="/admin/billing" element={<AuthGuard><BillingView /></AuthGuard>} />
+                <Route path="/admin/rules" element={<AuthGuard><RuleAdminView /></AuthGuard>} />
 
                 <Route path="*" element={<Navigate to="/chat" replace />} />
               </Routes>

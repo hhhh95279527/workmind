@@ -64,6 +64,70 @@ export interface EngineOptions {
   labor?: boolean
 }
 
+export interface RuleTryMatch {
+  index: number
+  quote: string
+}
+
+export interface RuleTryResult {
+  hit: boolean
+  /** 实际命中方式：pattern=正则命中；keywords=正则缺失/未命中后关键词全包含命中；null=未命中 */
+  mode: 'pattern' | 'keywords' | null
+  /** 正则编译错误（此时引擎在线上会静默降级为关键词判定，试运行显式暴露） */
+  regexError: string | null
+  matches: RuleTryMatch[]
+}
+
+/**
+ * 试运行单条规则（不落库）：对一段文本扫描，返回全部命中位置与原文引用。
+ * 命中优先级与线上 runRuleEngine 完全一致：pattern 优先；正则非法/未命中则降级关键词。
+ */
+export function tryRuleOnText(
+  rule: Pick<ReviewRule, 'pattern' | 'keywords'>,
+  content: string,
+): RuleTryResult {
+  const result: RuleTryResult = { hit: false, mode: null, regexError: null, matches: [] }
+
+  if (rule.pattern) {
+    let re: RegExp | null = null
+    try {
+      re = new RegExp(rule.pattern, 'gm')
+    } catch (e) {
+      result.regexError = (e as Error).message
+    }
+    if (re) {
+      const indexes: number[] = []
+      let m: RegExpExecArray | null
+      let guard = 0
+      while ((m = re.exec(content)) !== null && guard < 200) {
+        indexes.push(m.index)
+        if (m.index === re.lastIndex) re.lastIndex++ // 防零宽匹配死循环
+        guard++
+      }
+      if (indexes.length) {
+        result.hit = true
+        result.mode = 'pattern'
+        result.matches = indexes.map((index) => ({ index, quote: quoteSentence(content, index) }))
+        return result
+      }
+    }
+  }
+
+  if (rule.keywords?.length) {
+    const kws = rule.keywords.filter((kw) => kw)
+    if (kws.length && kws.every((kw) => content.includes(kw))) {
+      result.hit = true
+      result.mode = 'keywords'
+      result.matches = kws
+        .map((kw) => content.indexOf(kw))
+        .filter((i) => i >= 0)
+        .map((index) => ({ index, quote: quoteSentence(content, index) }))
+    }
+  }
+
+  return result
+}
+
 export function runRuleEngine(clauses: EngineClause[], rules: ReviewRule[], opts: EngineOptions = {}): RuleFinding[] {
   const findings: RuleFinding[] = []
   const enabled = rules

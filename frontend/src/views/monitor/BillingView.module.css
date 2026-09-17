@@ -1,0 +1,161 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selfHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.headRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.tenantName {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.backBar {
+  display: flex;
+  align-items: center;
+}
+
+.block {
+  margin-top: 0;
+}
+
+.chartWrap {
+  width: 100%;
+}
+
+.svgChart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.gridLine {
+  stroke: var(--color-border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.axisText {
+  fill: var(--color-text-3, #9ca3af);
+  font-size: 11px;
+}
+
+.legend {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-2, #6b7280);
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendItem i,
+.donutRow i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.donutWrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.donutTotal {
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--color-text);
+}
+
+.donutHint {
+  font-size: 11px;
+  fill: var(--color-text-3, #9ca3af);
+}
+
+.donutLegend {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.donutRow {
+  display: grid;
+  grid-template-columns: 12px 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.donutLabel {
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.donutPct {
+  color: var(--color-text-2, #6b7280);
+  width: 46px;
+  text-align: right;
+}
+
+.donutCost {
+  color: var(--color-text);
+  width: 84px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.adminPage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover > td {
+  background: rgba(79, 70, 229, 0.05) !important;
+}

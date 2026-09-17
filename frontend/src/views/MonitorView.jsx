@@ -1,6 +1,7 @@
 // frontend/src/views/MonitorView.jsx
 // 监控大盘：调用统计、预算、Token 消耗、调用记录
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import http from '@/utils/http.js'
 import { useAppStore } from '@/stores/app.js'
 import styles from './MonitorView.module.css'
@@ -34,6 +35,7 @@ function MetricCard({ label, value, sub, color }) {
 
 export default function MonitorView() {
   const toast = useAppStore((s) => s.toast)
+  const navigate = useNavigate()
 
   const [stats, setStats] = useState({})
   const [showBE, setShowBE] = useState(false)
@@ -97,6 +99,14 @@ export default function MonitorView() {
 
   return (
     <div className={styles['monitor-view']}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 4 }}>
+        <button className="btn btn-ghost" style={{ padding: '4px 12px', fontSize: 13 }} onClick={() => navigate('/monitor/billing')}>
+          💰 配额账单
+        </button>
+        <button className="btn btn-ghost" style={{ padding: '4px 12px', fontSize: 13 }} onClick={() => navigate('/monitor/traces')}>
+          🔍 调用链路瀑布
+        </button>
+      </div>
       <div className={styles['metrics-grid']}>
         <MetricCard label="今日 API 调用" value={stats.overview?.apiCallsToday ?? 0} sub={`总计 ${stats.overview?.totalCallsToday ?? 0} 次`} color="blue" />
         <MetricCard label="缓存命中率" value={stats.overview?.cacheHitRate ?? '0%'} sub={`命中 ${stats.overview?.cacheHitsToday ?? 0} 次`} color="purple" />

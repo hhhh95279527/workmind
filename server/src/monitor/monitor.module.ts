@@ -3,11 +3,12 @@
 import { Global, Module } from '@nestjs/common'
 import { MonitorController } from './monitor.controller'
 import { MonitorService } from './monitor.service'
+import { BillingService } from './billing.service.js'
 
 @Global()
 @Module({
   controllers: [MonitorController],
-  providers: [MonitorService],
-  exports: [MonitorService],
+  providers: [MonitorService, BillingService],
+  exports: [MonitorService, BillingService],
 })
 export class MonitorModule {}
