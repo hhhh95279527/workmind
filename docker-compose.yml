@@ -1,4 +1,4 @@
-version: '3.9'
+version: "3.9"
 
 services:
   # ── PostgreSQL 数据库 ─────────────────────────────────────────
@@ -52,7 +52,6 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
-      - CHROMA_URL=http://chroma:8000
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
       - CACHE_TTL=${CACHE_TTL:-1800000}
       - DATABASE_URL=postgresql://workmind:${POSTGRES_PASSWORD:-workmind123}@postgres:5432/workmind?schema=public
@@ -66,20 +65,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      chroma:
-        condition: service_started
     volumes:
       - ./server/uploads:/app/uploads
-    networks:
-      - workmind-net
-
-  # ── ChromaDB 向量数据库 ───────────────────────────────────────
-  chroma:
-    image: chromadb/chroma:latest
-    container_name: workmind-chroma
-    restart: unless-stopped
-    volumes:
-      - chroma-data:/chroma/chroma
     networks:
       - workmind-net
 
@@ -100,7 +87,6 @@ services:
 volumes:
   pg-data:
   redis-data:
-  chroma-data:
 
 networks:
   workmind-net:

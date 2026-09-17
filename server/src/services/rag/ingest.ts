@@ -11,7 +11,6 @@ import { DatabaseService } from '../../database/database.service.js'
 import { embedTexts } from './pg-store.js'
 import * as mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
-import Tesseract from 'tesseract.js'
 import { PDFDocument } from 'pdf-lib'
 
 // 单次入库最多 300 个 chunk，防止 embedding API 调用过多
@@ -29,8 +28,38 @@ export function getRagDatabase(): DatabaseService | null {
   return db
 }
 
-// ── 文本提取：根据文件类型读取内容（多格式 + OCR 框架）──────────
+// 解析硬上限：单个文件解析最长 60s（防压缩包/畸形 PDF 卡死事件循环），
+// 提取文本最多 200 万字符（约 400 万字以内，防解压炸弹撑爆内存与 embedding 成本）。
+const EXTRACT_TIMEOUT_MS = 60_000
+const MAX_EXTRACT_CHARS = 2_000_000
+
+function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms)
+    // 不阻止进程退出
+    timer.unref?.()
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v) },
+      (e) => { clearTimeout(timer); reject(e) },
+    )
+  })
+}
+
+// ── 文本提取（对外）：超时 + 长度硬上限包装 ─────────────────────
 export async function extractText(filePath: string): Promise<{ text: string; metadata: any }> {
+  const result = await withTimeout(
+    extractTextUnsafe(filePath),
+    EXTRACT_TIMEOUT_MS,
+    `文档解析超时（${EXTRACT_TIMEOUT_MS / 1000}s），请检查文件是否损坏或过大`,
+  )
+  if (result.text.length > MAX_EXTRACT_CHARS) {
+    throw new Error(`文档内容过大（提取文本超过 ${MAX_EXTRACT_CHARS} 字符），请拆分后上传`)
+  }
+  return result
+}
+
+// ── 文本提取：根据文件类型读取内容（多格式 + OCR 框架）──────────
+async function extractTextUnsafe(filePath: string): Promise<{ text: string; metadata: any }> {
   const ext = path.extname(filePath).toLowerCase()
   let text = ''
   const meta: any = { fileType: ext, hasImages: false, hasTables: false }
@@ -116,40 +145,19 @@ export async function extractText(filePath: string): Promise<{ text: string; met
       return { text, metadata: meta }
     }
 
-    // 5. 图片文件（JPG/PNG）- 直接 OCR
-    if (['.jpg', '.jpeg', '.png', '.bmp', '.tiff'].includes(ext)) {
-      text = await ocrImage(filePath)
-      meta.hasImages = true
-      return { text, metadata: meta }
-    }
-
-    // 6. PPTX：zip 结构，暂不支持完整解析
+    // 5. PPTX：zip 结构，暂不支持完整解析
+    //    （图片 OCR 已移除：上传白名单仅 .txt/.md/.pdf/.docx，旧图片分支无可达路径）
     if (ext === '.pptx') {
       text = '[PPTX 文件暂不支持完整解析，请转换为 PDF 后上传]'
       return { text, metadata: meta }
     }
 
-    // 7. 兜底：当作文本读取
+    // 6. 兜底：当作文本读取
     text = await fs.readFile(filePath, 'utf-8')
     return { text, metadata: meta }
   } catch (err) {
     logger.error('extractText failed', { filePath, error: (err as Error).message })
     throw new Error(`文档解析失败 (${ext}): ${(err as Error).message}`)
-  }
-}
-
-// ── OCR 引擎：Tesseract.js（图片类附件）────────────────────────
-async function ocrImage(imagePath: string): Promise<string> {
-  try {
-    logger.info('OCR starting', { imagePath })
-    const { data: { text } } = await Tesseract.recognize(imagePath, 'chi_sim+eng', {
-      logger: () => {},
-    })
-    logger.info('OCR complete', { textLength: text.length })
-    return text.trim()
-  } catch (err) {
-    logger.error('OCR failed', { error: (err as Error).message })
-    throw new Error(`OCR 识别失败: ${(err as Error).message}`)
   }
 }
 

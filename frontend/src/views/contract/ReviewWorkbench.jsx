@@ -12,7 +12,6 @@ import {
 import { useContractStore, CONTRACT_STATUS_META, SEVERITY_TEXT } from '@/stores/contract.js'
 import { useAuthStore } from '@/stores/auth.js'
 import RiskCard from '@/components/contract/RiskCard.jsx'
-import { renderMarkdown } from '@/utils/markdown.js'
 import styles from './ReviewWorkbench.module.css'
 
 const CLAUSE_TYPE_TEXT = {
@@ -40,8 +39,17 @@ export default function ReviewWorkbench() {
   const [decisions, setDecisions] = useState({})   // { [riskId]: { status, comment } }
   const [submitting, setSubmitting] = useState(false)
   const [reportMd, setReportMd] = useState('')
+  const [reportHtml, setReportHtml] = useState('')
   const [reportOpen, setReportOpen] = useState(false)
   const riskRefs = useRef({})
+
+  // markdown 渲染器（marked+hljs 近 1MB）仅在意见书弹窗实际打开时动态加载，不拖慢工作台首屏
+  const showReport = (md) => {
+    setReportMd(md)
+    setReportHtml('')
+    setReportOpen(true)
+    import('@/utils/markdown.js').then(({ renderMarkdown }) => setReportHtml(renderMarkdown(md)))
+  }
 
   useEffect(() => {
     resetReviewRun()
@@ -101,8 +109,7 @@ export default function ReviewWorkbench() {
   const openReport = async () => {
     try {
       const md = await loadReport(review.id)
-      setReportMd(md)
-      setReportOpen(true)
+      showReport(md)
     } catch { /* toast 已统一处理 */ }
   }
 
@@ -138,12 +145,13 @@ export default function ReviewWorkbench() {
       message.success(finalDecision === 'APPROVED' ? '终审完成，意见书已生成' : '已驳回，合同回到待审查状态')
       await loadDetail(id)
       if (finalDecision === 'APPROVED' && res.reportMd) {
-        setReportMd(res.reportMd); setReportOpen(true)
+        showReport(res.reportMd)
       }
     } finally { setSubmitting(false) }
   }
 
-  const printReport = () => {
+  const printReport = async () => {
+    const { renderMarkdown } = await import('@/utils/markdown.js')
     const html = renderMarkdown(reportMd)
     const w = window.open('', '_blank', 'width=900,height=1000')
     if (!w) { message.warning('浏览器拦截了打印窗口，请允许弹窗'); return }
@@ -405,7 +413,7 @@ export default function ReviewWorkbench() {
       >
         <div
           className={styles.reportMd}
-          dangerouslySetInnerHTML={{ __html: renderMarkdown(reportMd) }}
+          dangerouslySetInnerHTML={{ __html: reportHtml }}
         />
       </Modal>
     </div>

@@ -4,3 +4,5 @@ dist/
 *.sqlite3
 .DS_Store
 .trae/
+*.log
+server/uploads/

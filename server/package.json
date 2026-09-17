@@ -7,6 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only -r ./register-js-ext.cjs src/main.ts",
     "start": "node dist/main.js",
     "seed": "ts-node --transpile-only -r ./register-js-ext.cjs prisma/seed.ts",
+    "eval": "ts-node --transpile-only -r ./register-js-ext.cjs scripts/run-eval.ts",
+    "sync:feedback": "ts-node --transpile-only -r ./register-js-ext.cjs scripts/sync-feedback.ts",
     "postinstall": "prisma skills sync || exit 0"
   },
   "prisma": {
@@ -31,7 +33,6 @@
     "@types/passport-local": "^1.0.38",
     "bcryptjs": "^3.0.3",
     "bullmq": "^6.3.6",
-    "chromadb": "^1.9.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "compression": "^1.7.4",
@@ -53,8 +54,6 @@
     "prisma": "^5.22.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "sharp": "^0.35.3",
-    "tesseract.js": "^7.0.0",
     "xlsx": "^0.18.5",
     "xss": "^1.0.15",
     "zod": "^3.23.8"
