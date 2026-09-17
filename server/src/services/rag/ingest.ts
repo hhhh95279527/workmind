@@ -12,6 +12,8 @@ import { embedTexts } from './pg-store.js'
 import * as mammoth from 'mammoth'
 import * as XLSX from 'xlsx'
 import { PDFDocument } from 'pdf-lib'
+import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+import { ocrImageFile } from '../vision-ocr.js'
 
 // 单次入库最多 300 个 chunk，防止 embedding API 调用过多
 const MAX_CHUNKS = 300
@@ -28,9 +30,9 @@ export function getRagDatabase(): DatabaseService | null {
   return db
 }
 
-// 解析硬上限：单个文件解析最长 60s（防压缩包/畸形 PDF 卡死事件循环），
+// 解析硬上限：防压缩包/畸形 PDF 卡死事件循环（图片走视觉 OCR 可能耗时数十秒，120s），
 // 提取文本最多 200 万字符（约 400 万字以内，防解压炸弹撑爆内存与 embedding 成本）。
-const EXTRACT_TIMEOUT_MS = 60_000
+const EXTRACT_TIMEOUT_MS = 120_000
 const MAX_EXTRACT_CHARS = 2_000_000
 
 function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
@@ -46,9 +48,13 @@ function withTimeout<T>(p: Promise<T>, ms: number, message: string): Promise<T> 
 }
 
 // ── 文本提取（对外）：超时 + 长度硬上限包装 ─────────────────────
-export async function extractText(filePath: string): Promise<{ text: string; metadata: any }> {
+// callbacks 可选：图片 OCR 的 LLM Span 经此挂到当前 Trace（token/成本入账）
+export async function extractText(
+  filePath: string,
+  callbacks?: BaseCallbackHandler[],
+): Promise<{ text: string; metadata: any }> {
   const result = await withTimeout(
-    extractTextUnsafe(filePath),
+    extractTextUnsafe(filePath, callbacks),
     EXTRACT_TIMEOUT_MS,
     `文档解析超时（${EXTRACT_TIMEOUT_MS / 1000}s），请检查文件是否损坏或过大`,
   )
@@ -58,8 +64,11 @@ export async function extractText(filePath: string): Promise<{ text: string; met
   return result
 }
 
-// ── 文本提取：根据文件类型读取内容（多格式 + OCR 框架）──────────
-async function extractTextUnsafe(filePath: string): Promise<{ text: string; metadata: any }> {
+// ── 文本提取：根据文件类型读取内容（多格式 + 图片视觉 OCR）──────
+async function extractTextUnsafe(
+  filePath: string,
+  callbacks?: BaseCallbackHandler[],
+): Promise<{ text: string; metadata: any }> {
   const ext = path.extname(filePath).toLowerCase()
   let text = ''
   const meta: any = { fileType: ext, hasImages: false, hasTables: false }
@@ -145,14 +154,21 @@ async function extractTextUnsafe(filePath: string): Promise<{ text: string; meta
       return { text, metadata: meta }
     }
 
-    // 5. PPTX：zip 结构，暂不支持完整解析
-    //    （图片 OCR 已移除：上传白名单仅 .txt/.md/.pdf/.docx，旧图片分支无可达路径）
+    // 5. 图片合同（jpg/png）：deepseek-flash 视觉 OCR 转录，下游切条款/双轨审查不变
+    if (ext === '.jpg' || ext === '.jpeg' || ext === '.png') {
+      text = await ocrImageFile(filePath, ext, callbacks)
+      meta.hasImages = true
+      meta.ocr = true
+      return { text, metadata: meta }
+    }
+
+    // 6. PPTX：zip 结构，暂不支持完整解析
     if (ext === '.pptx') {
       text = '[PPTX 文件暂不支持完整解析，请转换为 PDF 后上传]'
       return { text, metadata: meta }
     }
 
-    // 6. 兜底：当作文本读取
+    // 7. 兜底：当作文本读取
     text = await fs.readFile(filePath, 'utf-8')
     return { text, metadata: meta }
   } catch (err) {

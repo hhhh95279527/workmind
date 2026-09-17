@@ -40,10 +40,11 @@ export function fileUpload(req: Request, res: Response, next: NextFunction) {
 }
 
 // 合同上传：在知识库允许的格式外追加 .docx（合同最常见格式）
+// 以及 .jpg/.jpeg/.png：纸质/扫描合同拍照后走 deepseek-flash 视觉 OCR
 const contractUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, './uploads/'),
-    filename:    (req, file, cb) => {
+    filename: (req, file, cb) => {
       const ext  = path.extname(file.originalname)
       const name = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}${ext}`
       cb(null, name)
@@ -51,7 +52,7 @@ const contractUpload = multer({
   }),
   limits: { fileSize: 30 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = ['.txt', '.md', '.pdf', '.docx']
+    const allowed = ['.txt', '.md', '.pdf', '.docx', '.jpg', '.jpeg', '.png']
     const ext = path.extname(file.originalname).toLowerCase()
     if (allowed.includes(ext)) {
       cb(null, true)

@@ -55,9 +55,9 @@ export class ContractParseService implements OnModuleInit {
       await this.tracer.run(
         { feature: 'contract_parse', name: `合同解析：${contract.title}`, tenantId: contract.tenantId, userId: contract.uploadedBy },
         async (handle) => {
-          const { text } = await extractText(filePath)
+          const { text } = await extractText(filePath, handle.callbacks)
           if (!text.trim() || /扫描版/.test(text.slice(0, 100))) {
-            throw new Error('未能从文件中提取到有效文本，请使用文字版 PDF/Word/TXT（扫描件 OCR 为增强项）')
+            throw new Error('未能从文件中提取到有效文本：请使用文字版 PDF/Word/TXT，扫描件可拍照或导出为 JPG/PNG 图片后上传（自动 OCR 识别）')
           }
           await this.db.contract.update({ where: { id: contractId }, data: { progress: 40 } })
 

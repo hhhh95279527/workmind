@@ -14,6 +14,8 @@ export const config = {
     zhipuKey:      process.env.ZHIPU_API_KEY,
     tavilyKey:     process.env.TAVILY_API_KEY,
     primaryModel:  process.env.PRIMARY_MODEL  || 'deepseek-chat',
+    // 视觉/OCR 模型：deepseek-flash 支持图片输入（同一个 DEEPSEEK_API_KEY）
+    visionModel:   process.env.VISION_MODEL   || 'deepseek-flash',
     embedModel:    process.env.EMBED_MODEL    || 'BAAI/bge-m3',
     baseURL:       'https://api.deepseek.com/v1',
     embedBaseURL:  process.env.EMBED_BASE_URL || 'https://api.siliconflow.cn/v1',

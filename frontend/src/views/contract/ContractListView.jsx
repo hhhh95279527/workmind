@@ -209,14 +209,17 @@ export default function ContractListView() {
                   <Input placeholder="例如：2026 年度 SaaS 服务合同" />
                 </Form.Item>
                 <Upload.Dragger
-                  accept=".txt,.md,.pdf,.docx"
+                  accept=".txt,.md,.pdf,.docx,.jpg,.jpeg,.png"
                   maxCount={1}
                   beforeUpload={(f) => { setFile(f); return false }}
                   onRemove={() => setFile(null)}
                 >
                   <p className="ant-upload-drag-icon"><UploadOutlined /></p>
                   <p className="ant-upload-text">点击选择或拖拽合同文件到此</p>
-                  <p className="ant-upload-hint">支持 .txt / .md / .pdf / .docx（扫描版 PDF 暂不支持）</p>
+                  <p className="ant-upload-hint">
+                    支持 .txt / .md / .pdf / .docx；也支持 .jpg / .png 合同照片（AI 视觉 OCR 自动识别）
+                    {/\.(jpe?g|png)$/i.test(file?.name || '') && ' · 图片识别约需 10~60 秒，请耐心等待解析完成'}
+                  </p>
                 </Upload.Dragger>
               </Form>
             ),

@@ -58,7 +58,26 @@ export function createEmbeddings() {
   return null
 }
 
+/**
+ * 创建视觉模型（图片合同 OCR）：deepseek-flash 接受 JPEG/PNG 等图片输入
+ * OCR 要的是稳定转录而非创意，temperature=0
+ */
+export function createVisionModel() {
+  const instance = new ChatOpenAI({
+    model:         config.ai.visionModel,
+    apiKey:        config.ai.deepseekKey || 'sk-missing-key-placeholder',
+    configuration: { baseURL: config.ai.baseURL },
+    temperature: 0,
+    streaming: false,
+    timeout: 90000,
+    maxRetries: 1,
+  })
+  instance.modelName = 'gpt-3.5-turbo'
+  return instance
+}
+
 // 单例：应用启动时创建一次，全局复用
 // 不每次请求都 new，节省内存
 export const chatModel = createChatModel({ temperature: 0.7, streaming: true })
+export const visionModel = createVisionModel()
 export const embeddings = createEmbeddings()

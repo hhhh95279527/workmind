@@ -59,6 +59,24 @@ export async function assertRealFileType(filePath: string, ext: string): Promise
     return
   }
 
+  if (e === '.jpg' || e === '.jpeg') {
+    // JPEG：FF D8 FF
+    if (!(head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff)) {
+      throw new BadRequestException('文件内容不是有效的 JPEG 图片（magic number 校验失败）')
+    }
+    return
+  }
+
+  if (e === '.png') {
+    // PNG：89 50 4E 47 0D 0A 1A 0A
+    const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+    const ok = PNG_SIG.every((b, i) => head[i] === b)
+    if (!ok) {
+      throw new BadRequestException('文件内容不是有效的 PNG 图片（magic number 校验失败）')
+    }
+    return
+  }
+
   if (e === '.txt' || e === '.md') {
     // 文本类：出现 NUL 字节基本可判定为二进制伪装；UTF-16 文本以 BOM 或 0x00 交替出现，
     // 对含 BOM 的 UTF-16 放行，交由后续解析处理。
