@@ -53,6 +53,15 @@ export class ChatController implements OnModuleInit {
     const { message, role = 'default', contractId } = body
     let { sessionId } = body
 
+    // 关联合同必须属于本租户，防止把消息挂到他人合同上
+    if (contractId) {
+      const owned = await this.db.contract.findFirst({
+        where: { id: contractId, tenantId },
+        select: { id: true },
+      })
+      if (!owned) throw new ForbiddenException('无权关联该合同')
+    }
+
     const sse = initSse(res)
     const send = sse.send
     let createdSessionId: string | null = null

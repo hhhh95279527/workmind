@@ -28,12 +28,12 @@ export class ContractParseService implements OnModuleInit {
     this.queue.processor(QUEUES.CONTRACT_PARSE, (job) => this.handle(job as Job<ParseJobData>))
   }
 
-  /** 入队：jobId 绑定 contractId，防止同一份合同被重复解析 */
+  /** 入队：jobId 绑定 contractId，防止同一份合同被重复解析（BullMQ 6 禁止自定义 id 含 ':'） */
   async enqueue(contractId: string, filePath: string): Promise<string> {
     return this.queue.add(
       QUEUES.CONTRACT_PARSE,
       { contractId, filePath },
-      { jobId: `parse:${contractId}` },
+      { jobId: `parse-${contractId}` },
     )
   }
 

@@ -8,6 +8,8 @@ const ChatSchema = z.object({
   sessionId:    z.string().optional(),
   systemPrompt: z.string().max(2000).optional(),
   role:         z.string().optional(),
+  // 关联合同 id（cuid/seed id）；controller 还会再做租户归属校验
+  contractId:   z.string().max(100).optional(),
 })
 
 export function validateChat(req: Request, res: Response, next: NextFunction) {

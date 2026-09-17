@@ -18,8 +18,21 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule)
 
+  // nginx 反代后需信任代理，req.ip 才能取到真实客户端 IP（审计/登录记录依赖）
+  app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
   // ── 基础中间件 ─────────────────────────────────────────────────
+  // helmet 默认安全头保留；CSP 按响应类型分级：
+  // - 纯 JSON API：default-src 'none'（接口文档不需要加载任何子资源，最严格）
+  // - /api/docs Swagger UI：放开同源脚本/样式及内联（其初始化脚本与样式为内联注入）
   app.use(helmet({ contentSecurityPolicy: false }))
+  app.use((req: any, res: any, next: () => void) => {
+    const csp = req.path?.startsWith('/api/docs')
+      ? "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'"
+      : "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+    res.setHeader('Content-Security-Policy', csp)
+    next()
+  })
   app.use(cors({
     origin: config.app.allowedOrigins,
     credentials: true,

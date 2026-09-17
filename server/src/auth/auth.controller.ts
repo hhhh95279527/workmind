@@ -6,20 +6,28 @@ import { LocalAuthGuard } from './guards/local-auth.guard'
 import { JwtAuthGuard } from './guards/jwt-auth.guard'
 import { Public } from './decorators/public.decorator'
 
+/** 提取客户端元信息（trust proxy 开启后 req.ip 取 X-Forwarded-For 对端） */
+function clientMeta(req: any) {
+  return {
+    ip: req.ip ?? req.socket?.remoteAddress,
+    userAgent: req.headers?.['user-agent'] as string | undefined,
+  }
+}
+
 @Controller('api/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
   @Post('register')
-  async register(@Body() body: {
+  async register(@Request() req: any, @Body() body: {
     username: string
     email: string
     password: string
     displayName?: string
     orgName?: string
   }) {
-    return this.authService.register(body)
+    return this.authService.register(body, clientMeta(req))
   }
 
   @Public()
@@ -27,13 +35,13 @@ export class AuthController {
   @HttpCode(200)
   @Post('login')
   async login(@Request() req: any) {
-    return this.authService.login(req.user)
+    return this.authService.login(req.user, clientMeta(req))
   }
 
   @Public()
   @Post('refresh')
-  async refresh(@Body() body: { refreshToken: string }) {
-    return this.authService.refreshToken(body.refreshToken)
+  async refresh(@Request() req: any, @Body() body: { refreshToken: string }) {
+    return this.authService.refreshToken(body.refreshToken, clientMeta(req))
   }
 
   @UseGuards(JwtAuthGuard)

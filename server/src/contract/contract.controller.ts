@@ -15,6 +15,7 @@ import { QuotaService } from '../observability/quota.service.js'
 import { Roles } from '../auth/decorators/roles.decorator.js'
 import { initSse } from '../utils/sse.js'
 import { logger } from '../utils/logger.js'
+import { assertRealFileType } from '../utils/file-guard.js'
 import { ContractParseService } from './parsing/contract-parse.service.js'
 import { setReviewDatabase, startReview, resumeReview, serializeRisk } from './review/review.agent.js'
 
@@ -42,6 +43,14 @@ export class ContractController implements OnModuleInit {
     const tenantId = (req as any).user.tenantId
     const userId = (req as any).user.userId
     const ext = path.extname(file.originalname).toLowerCase()
+
+    // magic number 校验：防改后缀伪造；不通过立即删除临时文件，不进解析队列
+    try {
+      await assertRealFileType(file.path, ext)
+    } catch (e) {
+      await fs.unlink(file.path).catch(() => {})
+      throw e
+    }
 
     const contract = await this.db.contract.create({
       data: {

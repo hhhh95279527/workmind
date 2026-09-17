@@ -64,12 +64,16 @@ export async function retrieveFromPg(
   const started = Date.now()
   const k = opts.k ?? 4
 
-  // 文档可见范围：法规/模板平台共享；普通知识库按租户隔离
+  // 文档可见范围：
+  // - LEGAL/TEMPLATE 为平台共享库，不按租户过滤；
+  // - GENERAL/未指定类型必须限定可见性：本租户 + 平台共享；无租户身份时仅平台共享（默认拒绝，防跨租户泄漏）。
   const docWhere: any = {}
   if (opts.docType) docWhere.docType = opts.docType
   if (opts.category) docWhere.category = opts.category
-  if (opts.docType === 'GENERAL' || (!opts.docType && opts.tenantId)) {
-    docWhere.OR = [{ tenantId: opts.tenantId ?? null }, { tenantId: null }]
+  if (opts.docType !== 'LEGAL' && opts.docType !== 'TEMPLATE') {
+    docWhere.OR = opts.tenantId
+      ? [{ tenantId: opts.tenantId }, { tenantId: null }]
+      : [{ tenantId: null }]
   }
 
   // ── 向量模式 ──────────────────────────────────────────────────

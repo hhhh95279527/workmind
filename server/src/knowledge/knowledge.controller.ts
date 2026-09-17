@@ -2,6 +2,9 @@
 // 知识库控制器：文档管理（上传/列表/删除）+ RAG 问答（流式）
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, OnModuleInit, Param, Post, Query, Req, Res } from '@nestjs/common'
 import type { Request, Response } from 'express'
+import path from 'path'
+import fs from 'fs/promises'
+import { assertRealFileType } from '../utils/file-guard.js'
 import { ingestDocument, ingestText, getDocRegistry, deleteDocument, setDatabase } from '../services/rag/ingest.js'
 import { ragQueryStream, ragQuery } from '../services/rag/query.js'
 import { clearSession } from '../services/rag/memory.js'
@@ -10,6 +13,14 @@ import { initSse } from '../utils/sse'
 import { DatabaseService } from '../database/database.service.js'
 import { TraceService } from '../observability/trace.service.js'
 import { QuotaService } from '../observability/quota.service.js'
+
+/**
+ * RAG 会话历史存于进程内存，sessionId 由前端生成且无属主列。
+ * 用 租户+用户 做键前缀命名空间，杜绝枚举/碰撞 sessionId 读写他人对话或清空他人会话。
+ */
+function scopeSession(tenantId: string, userId: string, sessionId?: string) {
+  return sessionId ? `rt:${tenantId}:${userId}:${sessionId}` : undefined
+}
 
 @Controller('api/knowledge')
 export class KnowledgeController implements OnModuleInit {
@@ -37,8 +48,14 @@ export class KnowledgeController implements OnModuleInit {
       const userId: string = (req as any).user.userId
 
       if ((req as any).file) {
-        // 方式1：上传文件
+        // 方式1：上传文件（magic number 校验通过后才入库，不通过删除临时文件）
         const file = (req as any).file
+        try {
+          await assertRealFileType(file.path, path.extname(file.originalname).toLowerCase())
+        } catch (e) {
+          await fs.unlink(file.path).catch(() => {})
+          throw e
+        }
         docMeta = await ingestDocument({
           filePath:   file.path,
           fileName:   file.originalname,
@@ -90,7 +107,9 @@ export class KnowledgeController implements OnModuleInit {
       await deleteDocument(docId, (req as any).user.tenantId)
       return { success: true }
     } catch (err) {
-      throw new NotFoundException((err as Error).message)
+      const msg = (err as Error).message
+      // 不向调用方区分"不存在/无权"，避免文档 id 枚举
+      throw new NotFoundException(msg.includes('无权') ? '文档不存在' : msg)
     }
   }
 
@@ -98,10 +117,11 @@ export class KnowledgeController implements OnModuleInit {
   // RAG 问答（流式）：先推送来源，再流式推送回答（支持历史记忆）
   @Post('query/stream')
   async queryStream(@Req() req: Request, @Body() body: { question: string; category?: string; docType?: any; sessionId?: string }, @Res() res: Response) {
-    const { question, category, sessionId } = body
+    const { question, category } = body
     const docType = body.docType
     const userId: string = (req as any).user.userId
     const tenantId: string = (req as any).user.tenantId
+    const sessionId = scopeSession(tenantId, userId, body.sessionId)
 
     if (!question?.trim()) {
       throw new BadRequestException('问题不能为空')
@@ -120,6 +140,7 @@ export class KnowledgeController implements OnModuleInit {
           const { sources, streamAnswer, rewrittenQuestion } = await ragQueryStream(question, {
             category,
             docType,
+            tenantId,
             sessionId,
             callbacks: handle.callbacks,
           })
@@ -155,8 +176,9 @@ export class KnowledgeController implements OnModuleInit {
   // RAG 问答（非流式）：适用于短问题或不需要流式展示的场景（支持历史记忆）
   @Post('query')
   async query(@Req() req: Request, @Body() body: { question: string; category?: string; docType?: any; sessionId?: string }) {
-    const { question, category, sessionId, docType } = body
+    const { question, category, docType } = body
     const tenantId: string = (req as any).user.tenantId
+    const sessionId = scopeSession(tenantId, (req as any).user.userId, body.sessionId)
 
     if (!question?.trim()) {
       throw new BadRequestException('问题不能为空')
@@ -169,6 +191,7 @@ export class KnowledgeController implements OnModuleInit {
         const { answer, sources } = await ragQuery(question, {
           category,
           docType,
+          tenantId,
           sessionId,
           callbacks: handle.callbacks,
         })
@@ -178,18 +201,19 @@ export class KnowledgeController implements OnModuleInit {
   }
 
   // ── DELETE /api/knowledge/session/:sessionId ───────────────────
-  // 清空指定会话的历史记录
+  // 清空指定会话的历史记录（sessionId 经租户+用户命名空间隔离）
   @Delete('session/:sessionId')
-  clearSession(@Param('sessionId') sessionId: string) {
-    clearSession(sessionId)
+  clearSession(@Req() req: Request, @Param('sessionId') sessionId: string) {
+    const scoped = scopeSession((req as any).user.tenantId, (req as any).user.userId, sessionId)
+    clearSession(scoped!)
     return { success: true, message: '会话历史已清空' }
   }
 
   // ── GET /api/knowledge/categories ─────────────────────────────
-  // 获取所有分类（前端筛选用）
+  // 获取可见分类（本租户 + 平台共享，前端筛选用）
   @Get('categories')
-  async categories() {
-    const docs = await getDocRegistry()
+  async categories(@Req() req: Request) {
+    const docs = await getDocRegistry({ tenantId: (req as any).user.tenantId })
     const categories = [...new Set(docs.map((d: any) => d.category))]
     return {
       categories: [

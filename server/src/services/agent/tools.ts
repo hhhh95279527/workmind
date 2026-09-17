@@ -31,7 +31,9 @@ export const readDocTool = tool(
     logger.info('tool:read_doc', { question })
     try {
       const { retrieveDocs } = await import('../rag/query.js')
-      const docs = await retrieveDocs(question, { k: 3 })
+      const { activeContext } = await import('../../observability/trace-context.js')
+      // 显式带出租户，避免工具在异步上下文丢失时退化为全库检索
+      const docs = await retrieveDocs(question, { k: 3, tenantId: activeContext()?.tenantId ?? null })
       if (!docs.length) return `知识库中未找到关于"${question}"的相关内容。`
       return docs.map((doc: any, i: number) => `[文档${i + 1}] ${doc.title}：${doc.content}`).join('\n\n')
     } catch {
